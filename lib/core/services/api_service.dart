@@ -153,8 +153,8 @@ class ApiService {
       await post('/store/orders/$id/accept');
   Future<void> markOrderReady(String id) async =>
       await post('/store/orders/$id/ready');
-  Future<void> completeOrder(String id) async =>
-      await post('/store/orders/$id/complete');
+  Future<void> completeOrder(String id, {required int finalAmount}) async =>
+      await post('/store/orders/$id/complete', data: {'final_amount': finalAmount});
   Future<void> cancelOrder(String id) async =>
       await post('/store/orders/$id/cancel');
 

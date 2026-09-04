@@ -100,6 +100,24 @@ class _OrdersScreenState extends State<OrdersScreen> {
     }
   }
 
+  Future<void> _complete(String id, double amount) async {
+    try {
+      await ApiService.instance.completeOrder(id, finalAmount: amount.toInt());
+      _snack('Commande terminée.', color: AppColors.success);
+      await _loadFirst();
+    } on DioException catch (e) {
+      final d = e.response?.data;
+      _snack(
+        (d is Map && d['message'] is String)
+            ? d['message'] as String
+            : 'Action impossible.',
+        color: AppColors.error,
+      );
+    } catch (_) {
+      _snack('Action impossible.', color: AppColors.error);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -198,10 +216,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                   id,
                                   ApiService.instance.markOrderReady,
                                   'Commande marquée prête.'),
-                              onComplete: (id) => _act(
-                                  id,
-                                  ApiService.instance.completeOrder,
-                                  'Commande terminée.'),
+                              onComplete: (id, amount) => _complete(id, amount),
                             );
                           },
                         ),
@@ -218,7 +233,7 @@ class _OrderCard extends StatelessWidget {
   final Future<void> Function(String) onAccept;
   final Future<void> Function(String) onCancel;
   final Future<void> Function(String) onReady;
-  final Future<void> Function(String) onComplete;
+  final Future<void> Function(String id, double finalAmount) onComplete;
 
   const _OrderCard({
     required this.order,
@@ -418,6 +433,60 @@ class _OrderCard extends StatelessWidget {
     );
   }
 
+  Future<void> _askFinalAmountAndComplete(BuildContext context, String id) async {
+    final ctrl = TextEditingController(
+        text: _num(order['total_amount']).toStringAsFixed(0));
+    final amount = await showDialog<double>(
+      context: context,
+      builder: (dctx) {
+        String? err;
+        return StatefulBuilder(
+          builder: (dctx, setLocal) => AlertDialog(
+            title: const Text('Montant final'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Saisissez le montant réellement convenu avec le client. '
+                  'Ce montant sera la base de la commission (18%).',
+                  style: TextStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: ctrl,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Montant (FCFA)',
+                    errorText: err,
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(dctx),
+                  child: const Text('Annuler')),
+              ElevatedButton(
+                onPressed: () {
+                  final v = double.tryParse(
+                      ctrl.text.trim().replaceAll(' ', ''));
+                  if (v == null || v < 100) {
+                    setLocal(() => err = 'Montant invalide (min. 100 F)');
+                    return;
+                  }
+                  Navigator.pop(dctx, v);
+                },
+                child: const Text('Confirmer'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (amount != null) await onComplete(id, amount);
+  }
+
   Widget _actions(BuildContext context, String id, String status) {
     switch (status) {
       case 'pending':
@@ -456,7 +525,7 @@ class _OrderCard extends StatelessWidget {
         return SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: () => onComplete(id),
+            onPressed: () => _askFinalAmountAndComplete(context, id),
             style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.success),
             child: const Text('Marquer terminée'),
