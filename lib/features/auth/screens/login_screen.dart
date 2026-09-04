@@ -91,19 +91,14 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(18),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    width: 96,
+                    height: 96,
+                    fit: BoxFit.cover,
                   ),
-                  alignment: Alignment.center,
-                  child: const Text('V',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(height: 16),
                 const Text('VigiRoutes — Magasin',
