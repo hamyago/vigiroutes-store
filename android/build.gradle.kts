@@ -16,22 +16,6 @@ subprojects {
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
 
-// ── Force TOUS les plugins Android à compiler avec compileSdk 36 / minSdk 23.
-//    Doit être placé AVANT evaluationDependsOn(":app"). On réagit à
-//    l'application du plugin Android via withPlugin, sans afterEvaluate. ──
-subprojects {
-    project.plugins.withId("com.android.library") {
-        project.extensions.configure<com.android.build.gradle.LibraryExtension> {
-            compileSdk = 36
-            defaultConfig {
-                if (minSdk == null || minSdk!! < 23) {
-                    minSdk = 23
-                }
-            }
-        }
-    }
-}
-
 subprojects {
     project.evaluationDependsOn(":app")
 }
