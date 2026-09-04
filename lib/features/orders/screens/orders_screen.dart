@@ -277,6 +277,11 @@ class _OrderCard extends StatelessWidget {
     if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
+  Future<void> _call(String phone) async {
+    final uri = Uri(scheme: 'tel', path: phone);
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   @override
   Widget build(BuildContext context) {
     final id = order['id'].toString();
@@ -388,6 +393,25 @@ class _OrderCard extends StatelessWidget {
               ),
             ),
           const SizedBox(height: 10),
+          if ((orderer?['phone']?.toString() ?? '').isNotEmpty) ...[
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _call(orderer!['phone'].toString()),
+                icon: const Icon(Icons.phone, size: 18, color: AppColors.primary),
+                label: Text(
+                  'Appeler le $ordererType',
+                  style: const TextStyle(color: AppColors.primary),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: AppColors.primary),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
           _actions(context, id, status),
         ],
       ),
