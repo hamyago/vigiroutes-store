@@ -1,12 +1,25 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/constants/app_colors.dart';
 import 'core/services/api_service.dart';
+import 'core/services/notification_service.dart';
 import 'features/auth/auth_controller.dart';
 import 'shared/navigation/app_router.dart';
 
-void main() {
+/// Handler des messages reçus quand l'app est en arrière-plan / fermée.
+/// Doit être une fonction top-level annotée.
+@pragma('vm:entry-point')
+Future<void> _firebaseBgHandler(RemoteMessage message) async {
+  // Le système affiche automatiquement la notification (payload 'notification').
+}
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  FirebaseMessaging.onBackgroundMessage(_firebaseBgHandler);
+  await NotificationService.instance.init();
   ApiService.instance.init();
   runApp(const VigiRoutesStoreApp());
 }

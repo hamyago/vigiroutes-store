@@ -10,6 +10,11 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # Firebase (notifications push) — memes versions que l'app Pro
+  firebase_core: ^4.11.0
+  firebase_messaging: ^16.4.1
+  flutter_local_notifications: ^18.0.1
+
   # HTTP
   dio: ^5.7.0
 

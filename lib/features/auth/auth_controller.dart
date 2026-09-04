@@ -1,6 +1,8 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import '../../core/models/store_models.dart';
 import '../../core/services/api_service.dart';
+import '../../core/services/notification_service.dart';
 
 enum AuthStatus { unknown, authenticated, unauthenticated }
 
@@ -8,6 +10,8 @@ enum AuthStatus { unknown, authenticated, unauthenticated }
 class AuthController extends ChangeNotifier {
   AuthStatus status = AuthStatus.unknown;
   StoreModel? store;
+
+  bool _pushRefreshAttached = false;
 
   /// Au démarrage : recharge le token et récupère le profil s'il existe.
   Future<void> bootstrap() async {
@@ -21,6 +25,7 @@ class AuthController extends ChangeNotifier {
       final me = await ApiService.instance.getMe();
       store = StoreModel.fromJson(me);
       status = AuthStatus.authenticated;
+      _registerPushToken();
     } catch (_) {
       await ApiService.instance.clearToken();
       status = AuthStatus.unauthenticated;
@@ -44,6 +49,7 @@ class AuthController extends ChangeNotifier {
         store = StoreModel.fromJson((res['store'] as Map).cast<String, dynamic>());
       }
       status = AuthStatus.authenticated;
+      _registerPushToken();
       notifyListeners();
       return true;
     }
@@ -61,6 +67,7 @@ class AuthController extends ChangeNotifier {
       store = StoreModel.fromJson((res['store'] as Map).cast<String, dynamic>());
     }
     status = AuthStatus.authenticated;
+    _registerPushToken();
     notifyListeners();
   }
 
@@ -84,5 +91,27 @@ class AuthController extends ChangeNotifier {
     store = null;
     status = AuthStatus.unauthenticated;
     notifyListeners();
+  }
+
+  /// Récupère le token FCM de l'appareil et l'enregistre côté serveur.
+  /// Appelé après chaque authentification réussie.
+  Future<void> _registerPushToken() async {
+    try {
+      final token = await NotificationService.instance.getToken();
+      if (token != null && token.isNotEmpty) {
+        await ApiService.instance.updateProfile({'fcm_token': token});
+      }
+    } catch (_) {
+      // Non bloquant : l'app fonctionne même si l'enregistrement échoue.
+    }
+
+    // Ré-enregistrer automatiquement si le token change (une seule écoute).
+    if (!_pushRefreshAttached) {
+      _pushRefreshAttached = true;
+      FirebaseMessaging.instance.onTokenRefresh.listen((t) {
+        ApiService.instance
+            .updateProfile({'fcm_token': t}).catchError((_) => <String, dynamic>{});
+      });
+    }
   }
 }
