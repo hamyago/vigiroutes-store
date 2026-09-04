@@ -24,13 +24,29 @@ class _ProductsScreenState extends State<ProductsScreen> {
     _load();
   }
 
+  String? _loadError;
+
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
     try {
       final list = await ApiService.instance.getProducts();
       setState(() =>
           _products = list.map((e) => (e as Map).cast<String, dynamic>()).toList());
-    } catch (_) {
+    } catch (e) {
+      String msg = 'Impossible de charger les produits.';
+      if (e is DioException) {
+        final code = e.response?.statusCode;
+        final data = e.response?.data;
+        final serverMsg =
+            (data is Map && data['message'] is String) ? data['message'] : null;
+        msg = 'Erreur $code : ${serverMsg ?? e.message}';
+      } else {
+        msg = 'Erreur : $e';
+      }
+      setState(() => _loadError = msg);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
