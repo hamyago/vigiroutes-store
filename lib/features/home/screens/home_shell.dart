@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../auth/auth_controller.dart';
+import '../../credit/screens/credit_screen.dart';
 import '../../profile/screens/profile_screen.dart';
 
 /// Accueil boutique : navigation à 4 onglets.
@@ -62,6 +63,8 @@ class _HomeShellState extends State<HomeShell> {
 
   Widget _body() {
     switch (_index) {
+      case 2:
+        return const CreditScreen();
       case 3:
         return const ProfileScreen();
       default:
