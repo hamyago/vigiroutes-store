@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../auth/auth_controller.dart';
+import '../../profile/screens/profile_screen.dart';
 
-/// Accueil boutique — SQUELETTE (lot 1) : navigation à 4 onglets.
-/// Le contenu réel (commandes, produits, crédit, profil) viendra aux lots suivants.
+/// Accueil boutique : navigation à 4 onglets.
+/// Profil = construit (lot 3). Commandes / Produits / Crédit = à venir.
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
 
@@ -15,22 +16,15 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
+  static const _titles = ['Commandes', 'Produits', 'Crédit', 'Profil'];
+
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthController>();
-    final store = auth.store;
-
-    final tabs = ['Commandes', 'Produits', 'Crédit', 'Profil'];
+    final store = context.watch<AuthController>().store;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(store?.name ?? 'Mon magasin'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => context.read<AuthController>().logout(),
-          ),
-        ],
+        title: Text(_index == 3 ? 'Mon profil' : (store?.name ?? 'Mon magasin')),
       ),
       body: Column(
         children: [
@@ -41,20 +35,11 @@ class _HomeShellState extends State<HomeShell> {
               padding: const EdgeInsets.all(12),
               child: const Text(
                 '⏳ Votre magasin est en attente de vérification par VigiRoutes. '
-                'Vous pourrez recevoir des commandes une fois validé.',
+                'Ajoutez vos documents dans l\'onglet Profil pour être validé.',
                 style: TextStyle(fontSize: 13),
               ),
             ),
-          Expanded(
-            child: Center(
-              child: Text(
-                '${tabs[_index]}\n(à construire)',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    color: AppColors.textSecondary, fontSize: 16),
-              ),
-            ),
-          ),
+          Expanded(child: _body()),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -73,5 +58,21 @@ class _HomeShellState extends State<HomeShell> {
         ],
       ),
     );
+  }
+
+  Widget _body() {
+    switch (_index) {
+      case 3:
+        return const ProfileScreen();
+      default:
+        return Center(
+          child: Text(
+            '${_titles[_index]}\n(à construire au prochain lot)',
+            textAlign: TextAlign.center,
+            style:
+                const TextStyle(color: AppColors.textSecondary, fontSize: 16),
+          ),
+        );
+    }
   }
 }

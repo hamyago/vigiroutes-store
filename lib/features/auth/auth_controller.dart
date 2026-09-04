@@ -64,6 +64,12 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Met à jour le magasin courant à partir d'un JSON (ex: après édition du profil).
+  void updateStore(Map<String, dynamic> json) {
+    store = StoreModel.fromJson(json);
+    notifyListeners();
+  }
+
   /// Rafraîchit le profil depuis le serveur.
   Future<void> refreshMe() async {
     try {
