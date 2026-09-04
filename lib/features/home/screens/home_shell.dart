@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../auth/auth_controller.dart';
+import '../../orders/screens/orders_screen.dart';
 import '../../credit/screens/credit_screen.dart';
 import '../../profile/screens/profile_screen.dart';
 
@@ -63,6 +64,8 @@ class _HomeShellState extends State<HomeShell> {
 
   Widget _body() {
     switch (_index) {
+      case 0:
+        return const OrdersScreen();
       case 2:
         return const CreditScreen();
       case 3:
