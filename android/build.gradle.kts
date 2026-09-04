@@ -20,17 +20,18 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
-// ── Force tous les plugins (sous-projets Android) à compiler avec un
-//    compileSdk/minSdk récent, requis par geocoding, image_picker, etc. ──
+// ── Force TOUS les plugins Android à compiler avec compileSdk 36 / minSdk 23.
+//    Appliqué APRÈS évaluation de chaque sous-projet, sinon la valeur du
+//    plugin (android-33) écrase la nôtre (cas de geocoding_android). ──
 subprojects {
-    plugins.withId("com.android.library") {
-        extensions.configure<com.android.build.gradle.LibraryExtension> {
-            if (compileSdk == null || compileSdk!! < 36) {
+    afterEvaluate {
+        if (project.plugins.hasPlugin("com.android.library")) {
+            project.extensions.configure<com.android.build.gradle.LibraryExtension> {
                 compileSdk = 36
-            }
-            defaultConfig {
-                if (minSdk == null || minSdk!! < 23) {
-                    minSdk = 23
+                defaultConfig {
+                    if (minSdk == null || minSdk!! < 23) {
+                        minSdk = 23
+                    }
                 }
             }
         }
