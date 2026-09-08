@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/services/api_service.dart';
@@ -121,6 +122,15 @@ class _CreditScreenState extends State<CreditScreen> {
         otp: otp,
       );
       reference = init['reference'] as String?;
+
+      // Wave : ouvrir la page de paiement (redirection) si une URL est fournie.
+      final paymentUrl = init['payment_url'] as String?;
+      if (paymentUrl != null && paymentUrl.isNotEmpty) {
+        final uri = Uri.tryParse(paymentUrl);
+        if (uri != null) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      }
     } catch (e) {
       setState(() => _recharging = false);
       _snack(_err(e), color: AppColors.error);

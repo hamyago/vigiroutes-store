@@ -24,5 +24,6 @@ class AppConstants {
   static const List<Map<String, dynamic>> operators = [
     {'code': 'ORANGE_MONEY_CI', 'label': 'Orange Money', 'otp': true},
     {'code': 'MTN_MONEY_CI', 'label': 'MTN MoMo', 'otp': false},
+    {'code': 'WAVE_MONEY_CI', 'label': 'Wave', 'otp': false},
   ];
 }
