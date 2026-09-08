@@ -5,34 +5,154 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/services/api_service.dart';
 
-/// Onglet Crédit : solde de l'abonnement + recharge Mobile Money (DigitalPaye).
-/// Réutilise le flux validé : initiation -> suivi du statut -> mise à jour.
+// ── Données opérateurs ───────────────────────────────────────────────────────
+
+class _Operator {
+  final String code;
+  final String name;
+  final Widget logo;
+  final bool needsOtp;
+
+  const _Operator({
+    required this.code,
+    required this.name,
+    required this.logo,
+    required this.needsOtp,
+  });
+}
+
+final List<_Operator> _operators = [
+  _Operator(
+    code: 'ORANGE_MONEY_CI',
+    name: 'Orange Money',
+    needsOtp: true,
+    logo: _OrangeLogo(),
+  ),
+  _Operator(
+    code: 'MTN_MONEY_CI',
+    name: 'MTN MoMo',
+    needsOtp: false,
+    logo: _MtnLogo(),
+  ),
+  _Operator(
+    code: 'WAVE_MONEY_CI',
+    name: 'Wave',
+    needsOtp: false,
+    logo: _WaveLogo(),
+  ),
+];
+
+// ── Logos inline ─────────────────────────────────────────────────────────────
+
+class _OrangeLogo extends StatelessWidget {
+  const _OrangeLogo();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: const Color(0xFFFF6600),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 22, height: 5,
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(3))),
+            const SizedBox(height: 3),
+            Container(width: 16, height: 5,
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(3))),
+            const SizedBox(height: 3),
+            Container(width: 10, height: 5,
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(3))),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MtnLogo extends StatelessWidget {
+  const _MtnLogo();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFCC00),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: const Center(
+        child: Text('MTN',
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 11)),
+      ),
+    );
+  }
+}
+
+class _WaveLogo extends StatelessWidget {
+  const _WaveLogo();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1B9AF7),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Center(
+        child: CustomPaint(size: const Size(26, 20), painter: _WaveIconPainter()),
+      ),
+    );
+  }
+}
+
+class _WaveIconPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0
+      ..strokeCap = StrokeCap.round;
+    final path = Path()
+      ..moveTo(0, size.height * 0.5)
+      ..cubicTo(size.width * 0.2, size.height * 0.1, size.width * 0.3, size.height * 0.1, size.width * 0.5, size.height * 0.5)
+      ..cubicTo(size.width * 0.7, size.height * 0.9, size.width * 0.8, size.height * 0.9, size.width, size.height * 0.5);
+    canvas.drawPath(path, paint);
+  }
+  @override
+  bool shouldRepaint(covariant CustomPainter _) => false;
+}
+
+// ── Écran Crédit ─────────────────────────────────────────────────────────────
+
 class CreditScreen extends StatefulWidget {
   const CreditScreen({super.key});
-
   @override
   State<CreditScreen> createState() => _CreditScreenState();
 }
 
 class _CreditScreenState extends State<CreditScreen> {
-  bool _loading = true;
+  bool _loading    = true;
   bool _recharging = false;
   Map<String, dynamic>? _subscription;
 
-  final List<int> _presets = const [2000, 5000, 15000];
-  int _preset = 2000;
+  static const List<int> _presets = [2000, 5000, 15000];
+  int _preset    = 2000;
   bool _useCustom = false;
   final _customCtrl = TextEditingController();
+  final _phoneCtrl  = TextEditingController();
+  final _otpCtrl    = TextEditingController();
 
-  final _phoneCtrl = TextEditingController();
-  final _otpCtrl = TextEditingController();
-  String _operatorCode = 'ORANGE_MONEY_CI';
+  _Operator _selectedOperator = _operators[0];
 
   @override
-  void initState() {
-    super.initState();
-    _load();
-  }
+  void initState() { super.initState(); _load(); }
 
   @override
   void dispose() {
@@ -42,19 +162,14 @@ class _CreditScreenState extends State<CreditScreen> {
     super.dispose();
   }
 
-  bool get _needsOtp => _operatorCode == 'ORANGE_MONEY_CI';
-
   int? get _amount {
-    if (_useCustom) {
-      return int.tryParse(_customCtrl.text.trim().replaceAll(' ', ''));
-    }
+    if (_useCustom) return int.tryParse(_customCtrl.text.trim().replaceAll(' ', ''));
     return _preset;
   }
 
   void _snack(String msg, {Color? color}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg), backgroundColor: color));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: color));
   }
 
   String _err(Object e) {
@@ -75,24 +190,104 @@ class _CreditScreenState extends State<CreditScreen> {
     try {
       final res = await ApiService.instance.getSubscription();
       if (mounted) setState(() => _subscription = res);
-    } catch (_) {
-      // On laisse l'écran s'afficher même sans abonnement.
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
+    } catch (_) {}
+    finally { if (mounted) setState(() => _loading = false); }
   }
 
   Future<String> _pollStatus(String reference) async {
     for (int i = 0; i < 20; i++) {
       await Future.delayed(const Duration(seconds: 3));
       try {
-        final res =
-            await ApiService.instance.getStoreRechargeStatus(reference);
+        final res = await ApiService.instance.getStoreRechargeStatus(reference);
         final status = res['status'] as String? ?? 'pending';
         if (status == 'success' || status == 'failed') return status;
       } catch (_) {}
     }
     return 'timeout';
+  }
+
+  void _showOperatorPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setLocal) => Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Sélectionnez votre\nmoyen de paiement',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(ctx),
+                    child: Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(color: AppColors.surfaceVariant, shape: BoxShape.circle),
+                      child: const Icon(Icons.close, size: 18),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              ..._operators.map((op) {
+                final selected = _selectedOperator.code == op.code;
+                return Column(
+                  children: [
+                    InkWell(
+                      onTap: () {
+                        setLocal(() {});
+                        setState(() => _selectedOperator = op);
+                        Navigator.pop(ctx);
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        child: Row(
+                          children: [
+                            op.logo,
+                            const SizedBox(width: 16),
+                            Expanded(child: Text(op.name,
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500))),
+                            Container(
+                              width: 24, height: 24,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: selected ? AppColors.primary : AppColors.border,
+                                  width: selected ? 0 : 2,
+                                ),
+                                color: selected ? AppColors.primary : Colors.transparent,
+                              ),
+                              child: selected ? const Icon(Icons.circle, color: Colors.white, size: 10) : null,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (op != _operators.last)
+                      const Divider(height: 1, color: Color(0xFFF3F4F6)),
+                  ],
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _recharge() async {
@@ -106,30 +301,27 @@ class _CreditScreenState extends State<CreditScreen> {
       _snack('Entrez le numéro Mobile Money qui effectue le paiement.');
       return;
     }
-    final otp = _needsOtp ? _otpCtrl.text.trim() : null;
-    if (_needsOtp && (otp == null || otp.isEmpty)) {
+    if (_selectedOperator.needsOtp && _otpCtrl.text.trim().isEmpty) {
       _snack('Un code OTP Orange Money est requis.');
       return;
     }
 
     setState(() => _recharging = true);
     String? reference;
+
     try {
       final init = await ApiService.instance.initiateStoreRecharge(
-        amount: amount,
-        operatorCode: _operatorCode,
-        payerPhone: phone,
-        otp: otp,
+        amount:       amount,
+        operatorCode: _selectedOperator.code,
+        payerPhone:   phone,
+        otp: _selectedOperator.needsOtp ? _otpCtrl.text.trim() : null,
       );
       reference = init['reference'] as String?;
 
-      // Wave : ouvrir la page de paiement (redirection) si une URL est fournie.
       final paymentUrl = init['payment_url'] as String?;
       if (paymentUrl != null && paymentUrl.isNotEmpty) {
         final uri = Uri.tryParse(paymentUrl);
-        if (uri != null) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        }
+        if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
       }
     } catch (e) {
       setState(() => _recharging = false);
@@ -149,8 +341,7 @@ class _CreditScreenState extends State<CreditScreen> {
 
     if (status == 'success') {
       _otpCtrl.clear();
-      _snack('Recharge confirmée ! Votre solde est à jour.',
-          color: AppColors.success);
+      _snack('Recharge confirmée ! Votre solde est à jour.', color: AppColors.success);
       await _load();
     } else if (status == 'failed') {
       _snack('Le paiement a échoué ou a été refusé.', color: AppColors.error);
@@ -162,254 +353,333 @@ class _CreditScreenState extends State<CreditScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    if (_loading) return const Center(child: CircularProgressIndicator());
 
-    final sub = _subscription?['subscription'] as Map<String, dynamic>?;
+    final sub     = _subscription?['subscription'] as Map<String, dynamic>?;
     final percent = (_subscription?['credit_percent'] as num?)?.toInt() ?? 0;
 
-    return Stack(
-      children: [
-        ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            const Text(
-              '18% du montant de chaque commande terminée est déduit de ce solde.',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-            ),
-            const SizedBox(height: 16),
-
-            if (sub != null) _balanceCard(sub, percent),
-            const SizedBox(height: 24),
-
-            const Text('Choisissez un montant',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: _presets.map((p) {
-                final selected = !_useCustom && _preset == p;
-                return GestureDetector(
-                  onTap: () => setState(() {
-                    _useCustom = false;
-                    _preset = p;
-                  }),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 16),
-                    decoration: BoxDecoration(
-                      color: selected ? AppColors.primary : AppColors.surface,
-                      border: Border.all(
-                          color: selected
-                              ? AppColors.primary
-                              : AppColors.border,
-                          width: selected ? 2 : 1),
-                      borderRadius: BorderRadius.circular(14),
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      bottomNavigationBar: _recharging
+          ? null
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                child: SizedBox(
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: _recharge,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
-                    child: Text('$p F',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                          color: selected
-                              ? Colors.white
-                              : AppColors.textPrimary,
-                        )),
+                    child: Text('Recharger via ${_selectedOperator.name}',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                   ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _customCtrl,
-              keyboardType: TextInputType.number,
-              onTap: () => setState(() => _useCustom = true),
-              onChanged: (_) => setState(() => _useCustom = true),
-              decoration: InputDecoration(
-                labelText: 'Autre montant (min. 2 000 F)',
-                filled: true,
-                fillColor: AppColors.surface,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(
-                      color: _useCustom
-                          ? AppColors.primary
-                          : AppColors.border),
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+      body: Stack(
+        children: [
+          ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              // ── Carte solde ─────────────────────────────────────────
+              _buildBalanceCard(sub, percent),
+              const SizedBox(height: 20),
 
-            const Text('Opérateur Mobile Money',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              children: AppConstants.operators.map((m) {
-                final code = m['code'] as String;
-                final selected = _operatorCode == code;
-                return GestureDetector(
-                  onTap: () => setState(() => _operatorCode = code),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: selected ? AppColors.primary : AppColors.surface,
-                      border: Border.all(
-                          color: selected
-                              ? AppColors.primary
-                              : AppColors.border),
-                      borderRadius: BorderRadius.circular(24),
+              // ── Info commission ────────────────────────────────────
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline, color: AppColors.primary, size: 18),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '18% du montant de chaque commande terminée est déduit de ce solde.',
+                        style: TextStyle(color: AppColors.primary, fontSize: 12, height: 1.5),
+                      ),
                     ),
-                    child: Text(m['label'] as String,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: selected
-                              ? Colors.white
-                              : AppColors.textPrimary,
-                          fontWeight:
-                              selected ? FontWeight.w600 : FontWeight.w400,
-                        )),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 18),
-
-            const Text('Numéro Mobile Money',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _phoneCtrl,
-              keyboardType: TextInputType.phone,
-              decoration: InputDecoration(
-                hintText: 'Ex : 07 00 00 00 00',
-                filled: true,
-                fillColor: AppColors.surface,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: AppColors.border),
+                  ],
                 ),
               ),
-            ),
+              const SizedBox(height: 24),
 
-            if (_needsOtp) ...[
-              const SizedBox(height: 18),
-              const Text('Code OTP Orange Money',
-                  style:
-                      TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
+              // ── Montant ────────────────────────────────────────────
+              const Text('Choisissez un montant',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 12),
+              Row(
+                children: _presets.map((p) {
+                  final selected = !_useCustom && _preset == p;
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() { _useCustom = false; _preset = p; }),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        margin: EdgeInsets.only(right: p != _presets.last ? 8 : 0),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        decoration: BoxDecoration(
+                          color: selected ? AppColors.primary : Colors.white,
+                          border: Border.all(
+                            color: selected ? AppColors.primary : AppColors.border,
+                            width: selected ? 2 : 1,
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Center(
+                          child: Text('${p ~/ 1000}k F',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                                color: selected ? Colors.white : AppColors.textPrimary,
+                              )),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 12),
               TextField(
-                controller: _otpCtrl,
+                controller: _customCtrl,
                 keyboardType: TextInputType.number,
+                onTap: () => setState(() => _useCustom = true),
+                onChanged: (_) => setState(() => _useCustom = true),
                 decoration: InputDecoration(
-                  hintText: 'Code reçu sur votre téléphone',
+                  labelText: 'Autre montant',
+                  suffixText: 'FCFA',
+                  hintText: 'Min. 2 000 FCFA',
                   filled: true,
-                  fillColor: AppColors.surface,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: AppColors.border),
-                  ),
+                  fillColor: _useCustom ? AppColors.primaryLight : Colors.white,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.border)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: _useCustom ? AppColors.primary : AppColors.border, width: _useCustom ? 2 : 1)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.primary, width: 2)),
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.only(top: 6, left: 4),
-                child: Text(
-                  'Générez le code depuis le menu Orange Money de votre téléphone.',
-                  style:
-                      TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                ),
-              ),
-            ],
 
-            const SizedBox(height: 28),
-            SizedBox(
-              height: 52,
-              child: ElevatedButton(
-                onPressed: _recharging ? null : _recharge,
-                child: _recharging
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Recharger'),
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
+              const SizedBox(height: 24),
 
-        if (_recharging)
-          Positioned.fill(
-            child: Container(
-              color: Colors.black.withValues(alpha: 0.45),
-              child: Center(
+              // ── Moyen de paiement ──────────────────────────────────
+              const Text('Moyen de paiement',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: _showOperatorPicker,
                 child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 40),
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.border),
                   ),
-                  child: const Column(
-                    mainAxisSize: MainAxisSize.min,
+                  child: Row(
                     children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text('Paiement en cours…',
-                          style: TextStyle(fontWeight: FontWeight.w700)),
-                      SizedBox(height: 6),
-                      Text(
-                        'Validez la demande sur votre téléphone si nécessaire, puis patientez.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            color: AppColors.textSecondary, fontSize: 13),
-                      ),
+                      _selectedOperator.logo,
+                      const SizedBox(width: 14),
+                      Expanded(child: Text(_selectedOperator.name,
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500))),
+                      const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary),
                     ],
                   ),
                 ),
               ),
-            ),
+
+              const SizedBox(height: 16),
+
+              // ── Numéro ─────────────────────────────────────────────
+              TextField(
+                controller: _phoneCtrl,
+                keyboardType: TextInputType.phone,
+                decoration: InputDecoration(
+                  labelText: 'Numéro Mobile Money',
+                  hintText: 'Ex : 07 00 00 00 00',
+                  filled: true,
+                  fillColor: Colors.white,
+                  prefixIcon: const Icon(Icons.phone_outlined, color: AppColors.textSecondary),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.border)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.border)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.primary, width: 2)),
+                ),
+              ),
+
+              // ── OTP ────────────────────────────────────────────────
+              if (_selectedOperator.needsOtp) ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _otpCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Code OTP Orange Money',
+                    hintText: 'Code reçu sur votre téléphone',
+                    filled: true,
+                    fillColor: Colors.white,
+                    prefixIcon: const Icon(Icons.lock_outline, color: AppColors.textSecondary),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.border)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.border)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.primary, width: 2)),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 6, left: 4),
+                  child: Text('Composez #144*391# pour obtenir votre code OTP.',
+                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                ),
+              ],
+
+              // ── Info Wave ──────────────────────────────────────────
+              if (_selectedOperator.code == 'WAVE_MONEY_CI') ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE3F2FD),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF90CAF9)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Color(0xFF1565C0), size: 20),
+                      SizedBox(width: 10),
+                      Expanded(child: Text(
+                        'Vous serez redirigé vers l\'app Wave pour confirmer le paiement.',
+                        style: TextStyle(fontSize: 13, color: Color(0xFF1565C0)),
+                      )),
+                    ],
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 24),
+            ],
           ),
-      ],
+
+          // ── Overlay chargement ───────────────────────────────────────
+          if (_recharging)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.5),
+                child: Center(
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 40),
+                    padding: const EdgeInsets.all(28),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _selectedOperator.logo,
+                        const SizedBox(height: 16),
+                        const CircularProgressIndicator(),
+                        const SizedBox(height: 16),
+                        const Text('Paiement en cours…',
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                        const SizedBox(height: 6),
+                        Text(
+                          _selectedOperator.code == 'WAVE_MONEY_CI'
+                              ? 'Confirmez dans l\'app Wave puis revenez ici.'
+                              : 'Validez sur votre téléphone puis patientez.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
-  Widget _balanceCard(Map<String, dynamic> sub, int percent) {
+  Widget _buildBalanceCard(Map<String, dynamic>? sub, int percent) {
+    if (sub == null) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.primaryLight,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.account_balance_wallet_outlined, color: AppColors.primary),
+            SizedBox(width: 12),
+            Expanded(child: Text(
+              'Aucun crédit actif. Effectuez votre première recharge.',
+              style: TextStyle(color: AppColors.primary, fontSize: 13),
+            )),
+          ],
+        ),
+      );
+    }
+
     final balance = _num(sub['credit_balance']);
     final initial = _num(sub['credit_initial']);
-    final floor = _num(sub['credit_floor']);
-    final color = percent > 50
-        ? AppColors.success
-        : percent > 20
-            ? Colors.orange
-            : AppColors.error;
+    final floor   = _num(sub['credit_floor']);
+    final status  = sub['status'] as String? ?? 'active';
+
+    final color = status == 'exhausted'
+        ? AppColors.error
+        : percent > 50 ? AppColors.success
+        : percent > 20 ? Colors.orange
+        : AppColors.error;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1A1A2E), Color(0xFF16213E)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Solde actuel',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
-              Text('${balance.toStringAsFixed(0)} F',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 16)),
+              const Icon(Icons.account_balance_wallet_rounded, color: Colors.white70, size: 18),
+              const SizedBox(width: 6),
+              const Text('Solde crédit', style: TextStyle(color: Colors.white70, fontSize: 13)),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: status == 'exhausted'
+                      ? AppColors.error.withValues(alpha: 0.3)
+                      : AppColors.success.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  status == 'exhausted' ? 'Épuisé' : 'Actif',
+                  style: TextStyle(
+                    color: status == 'exhausted' ? AppColors.error : AppColors.success,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
+          Text('${balance.toStringAsFixed(0)} FCFA',
+              style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 14),
           ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(6),
             child: LinearProgressIndicator(
               value: (percent / 100).clamp(0, 1),
-              minHeight: 10,
-              backgroundColor: AppColors.surfaceVariant,
+              minHeight: 6,
+              backgroundColor: Colors.white24,
               valueColor: AlwaysStoppedAnimation<Color>(color),
             ),
           ),
@@ -418,11 +688,11 @@ class _CreditScreenState extends State<CreditScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Rechargé : ${initial.toStringAsFixed(0)} F',
-                  style: const TextStyle(
-                      fontSize: 12, color: AppColors.textSecondary)),
+                  style: const TextStyle(color: Colors.white54, fontSize: 11)),
+              Text('$percent% restant',
+                  style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
               Text('Seuil : ${floor.toStringAsFixed(0)} F',
-                  style: const TextStyle(
-                      fontSize: 12, color: AppColors.textSecondary)),
+                  style: const TextStyle(color: Colors.white54, fontSize: 11)),
             ],
           ),
         ],
