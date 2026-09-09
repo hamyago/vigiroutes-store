@@ -62,11 +62,11 @@ Widget _buildLogo(_Operator op) {
 // ── Écran principal ──────────────────────────────────────────────────────────
 
 class CreditScreen extends StatefulWidget {
-  const ProviderSubscriptionScreen({super.key});
+  const CreditScreen({super.key});
 
   @override
   State<CreditScreen> createState() =>
-      _ProviderSubscriptionScreenState();
+      _CreditScreenState();
 }
 
 class _CreditScreenState
