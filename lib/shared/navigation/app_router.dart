@@ -5,8 +5,12 @@ import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
 import '../../features/home/screens/home_shell.dart';
 
-GoRouter buildRouter(AuthController auth) {
+GoRouter buildRouter(
+  AuthController auth, {
+  GlobalKey<NavigatorState>? navigatorKey,
+}) {
   return GoRouter(
+    navigatorKey: navigatorKey,
     initialLocation: '/',
     refreshListenable: auth,
     redirect: (context, state) {
@@ -15,7 +19,6 @@ GoRouter buildRouter(AuthController auth) {
         case AuthStatus.unknown:
           return loc == '/splash' ? null : '/splash';
         case AuthStatus.unauthenticated:
-          // On laisse accéder à login et register.
           if (loc == '/login' || loc.startsWith('/register')) return null;
           return '/login';
         case AuthStatus.authenticated:
