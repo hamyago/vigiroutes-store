@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/api_service.dart';
+import '../../../shared/utils/date_filter_utils.dart';
+import '../../../shared/widgets/date_range_filter.dart';
 
 /// Onglet Commandes : commandes de pièces reçues (clients & prestataires).
 /// Flux : En attente -> Acceptée -> Prête -> Terminée (ou Annulée).
@@ -24,6 +26,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
   ];
 
   String _status = '';
+
+  /// Filtre période sélectionné (S14).
+  DateFilter _selectedFilter = DateFilter.all;
+
   final List<Map<String, dynamic>> _orders = [];
   int _page = 1;
   int _lastPage = 1;
@@ -118,11 +124,22 @@ class _OrdersScreenState extends State<OrdersScreen> {
     }
   }
 
+  /// Liste des commandes filtrée par période (S14).
+  /// Cumulée avec le filtre statut appliqué côté serveur.
+  List<Map<String, dynamic>> get _filteredOrders {
+    if (_selectedFilter == DateFilter.all) return _orders;
+    return _orders.where((o) {
+      final d = parseJsonDate(o['created_at']);
+      if (d == null) return true;
+      return matchesDateFilter(d, _selectedFilter);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Filtres
+        // Filtres statut (existant)
         SizedBox(
           height: 52,
           child: ListView.separated(
@@ -162,10 +179,15 @@ class _OrdersScreenState extends State<OrdersScreen> {
             },
           ),
         ),
+        // Filtres période (S14)
+        DateRangeFilter(
+          selected: _selectedFilter,
+          onChanged: (f) => setState(() => _selectedFilter = f),
+        ),
         Expanded(
           child: _loading
               ? const Center(child: CircularProgressIndicator())
-              : _orders.isEmpty
+              : _filteredOrders.isEmpty
                   ? RefreshIndicator(
                       onRefresh: _loadFirst,
                       child: ListView(
@@ -191,9 +213,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         },
                         child: ListView.builder(
                           padding: const EdgeInsets.all(16),
-                          itemCount: _orders.length + 1,
+                          itemCount: _filteredOrders.length + 1,
                           itemBuilder: (_, i) {
-                            if (i == _orders.length) {
+                            if (i == _filteredOrders.length) {
                               return _page < _lastPage
                                   ? const Padding(
                                       padding: EdgeInsets.all(16),
@@ -203,7 +225,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                   : const SizedBox(height: 20);
                             }
                             return _OrderCard(
-                              order: _orders[i],
+                              order: _filteredOrders[i],
                               onAccept: (id) => _act(
                                   id,
                                   ApiService.instance.acceptOrder,
